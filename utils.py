@@ -21,11 +21,13 @@ import concurrent.futures
 import time
 import traceback
 import sys
+from config import *
 try:
     from disf import DISF_Superpixels
 except:
     from skimage.segmentation import slic as DISF_Superpixels
 # from cuda_slic.slic import slic as cuda_slic
+from models import get_feture_extractor_model
 
 current_file_path = os.path.dirname(os.path.abspath(__file__))
 
@@ -117,8 +119,9 @@ def load_image(tain_normal_path,train_pneumonia_path,test_normal_path,test_pneum
 
 
 
-def make_graph_from_image(image,dirs_names,class_name,data_typ,image_name,n_segments = 10,model = 'densenet121'):
+def make_graph_from_image(image,dirs_names,class_name,data_typ,image_name,n_segments = 10,model_name = 'densenet121'):
     G2 = nx.Graph()
+    model,feature_extractor = get_feture_extractor_model(model_name)
     # img2 = np.zeros_like(image)
     # image[:,:,0] = gray
     # image[:,:,1] = gray
@@ -151,8 +154,8 @@ def make_graph_from_image(image,dirs_names,class_name,data_typ,image_name,n_segm
         seg = cv2.cvtColor(seg, cv2.COLOR_BGR2RGB)
         rag.nodes[segVal]['image'] = seg
         seg_imgs.append([seg,segVal])
-    with concurrent.futures.ThreadPoolExecutor(max_workers=30) as executor:
-        futures = [executor.submit(fet_from_img, seg_img[0], seg_img[1],model)  for  i,seg_img in enumerate(seg_imgs)]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(fet_from_img, seg_img[0],model, feature_extractor ,seg_img[1])  for  i,seg_img in enumerate(seg_imgs)]
         for future in concurrent.futures.as_completed(futures):
             try:
                 img_fet,i = future.result()
@@ -160,9 +163,7 @@ def make_graph_from_image(image,dirs_names,class_name,data_typ,image_name,n_segm
             except Exception as exc:
                 print(f'generated an exception: {exc} for seg {i}')
                 print(traceback.format_exc())
-            else:
-                print(f'all done for seg {i} for {image_name}')
-
+   
     end_time = time.time()
     print(f"{image_name} total time take per image is {end_time - start_time}")
     edges = rag.edges
@@ -213,7 +214,7 @@ def run_for_one_folder(folder_path, n_segments = 10,model = 'densenet121'):
         print("total images present ",len(os.listdir(f"{current_file_path}/chest_xray/{data_typ}/{class_name}")))
         print(f"starting for file: {image_name}")
         image = read_one_image(one)
-        G,segments = make_graph_from_image(image,dirs_names,class_name,data_typ,image_name,model)
+        G,segments = make_graph_from_image(image,dirs_names,class_name,data_typ,image_name,n_segments,model)
         e = time.time()
         print(f"time including slic + cnn feature extraction : {e-ss}s")
         print("="*100)
@@ -225,7 +226,7 @@ def run_for_one_folder(folder_path, n_segments = 10,model = 'densenet121'):
 
 def graph_preperation(n_segments = 10,model = 'dense121'):
     print("starting")
-    make_dirs(current_file_path+'/'+'chest_xray_graphs_{model}_sp_{n_segments}')
+    # make_dirs(current_file_path+'/'+f'chest_xray_graphs_{model}_sp_{n_segments}')
     all_images_path = get_image_paths(data_dir)
     tasks = []
     start = time.time()
@@ -236,8 +237,9 @@ def graph_preperation(n_segments = 10,model = 'dense121'):
                 print(future.result())
             except Exception as exc:
                print(f'exception {exc} exception at folder level!!!')
-            else:
-               print('all done for one folder')
+               traceback.format_exc()
+            # else:
+            #    print('all done for one folder')
             end = time.time()
             print(f"time take per folder = {end - start}")
 
