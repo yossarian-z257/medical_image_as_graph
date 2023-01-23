@@ -34,9 +34,9 @@ from torch_geometric.nn import global_mean_pool
 curretn_path = os.getcwd()
 path = f"{curretn_path}/chest_xray_graphs_res10k"
 #path = "/home/melkor/projects/img_to_graph/graph_folder/chest_xray_graphs_10sp_resnet18"
-path = "/home/melkor/projects/img_to_graph/graph_folder/chest_xray_graphs_300sp_resnet"
-super_pixels = 300
-model_name = "resnet18"
+path = "/home/melkor/projects/img_to_graph/graph_folder/chest_xray_graphs_150sp_effnet"
+super_pixels = 150
+model_name = "efficientnet-b0"
 embed_dim = 128
 
 def load_all_from_one_folder(path,type = 0):

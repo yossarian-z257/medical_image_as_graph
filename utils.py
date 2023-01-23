@@ -37,7 +37,7 @@ from models import GCN, GAT, GIN
 
 
 current_file_path = os.path.dirname(os.path.abspath(__file__))
-
+# device = 'cpu'
 data_dir = f"{current_file_path}/chest_xray"
 
 def make_dirs(dir):
@@ -58,18 +58,14 @@ class SaveBestModel:
     """
     Class to save the best model while training. call it with test set for better results.
     """
-    def __init__(
-        self, best_valid_loss=float('inf')
-    ):
-        self.best_valid_loss = best_valid_loss
+    def __init__(self, best_valid_acc=float('-inf')):
+        self.best_valid_acc = best_valid_acc
         
-    def __call__(
-        self, current_valid_loss, 
-        epoch, model, optimizer, criterion, cnn_model_name, gnn_model, superpixel_number
-    ):
-        if current_valid_loss < self.best_valid_loss:
-            self.best_valid_loss = current_valid_loss
-            # print(f"\nBest validation loss: {self.best_valid_loss}")
+    def __call__(self, current_valid_acc, epoch, model, optimizer, criterion, cnn_model_name, gnn_model, superpixel_number):
+        
+        if current_valid_acc > self.best_valid_acc:
+            self.best_valid_acc = current_valid_acc
+            # print(f"\nBest validation acc: {self.best_valid_acc}")
             # print(f"\nSaving best model for epoch: {epoch+1}\n")
             torch.save(model.state_dict(), f"outputs/{gnn_model}_{superpixel_number}_{cnn_model_name}_best_model.pt")
             # torch.save({
@@ -92,7 +88,7 @@ def save_plots(train_acc, valid_acc, train_loss, valid_loss,cnn_model_name, gnn_
     )
     plt.plot(
         valid_acc, color='blue', linestyle='-', 
-        label='validataion accuracy'
+        label='test accuracy'
     )
     plt.xlabel('Epochs')
     plt.ylabel('Accuracy')
@@ -107,7 +103,7 @@ def save_plots(train_acc, valid_acc, train_loss, valid_loss,cnn_model_name, gnn_
     )
     plt.plot(
         valid_loss, color='red', linestyle='-', 
-        label='validataion loss'
+        label='test loss'
     )
     plt.xlabel('Epochs')
     plt.ylabel('Loss')
@@ -403,6 +399,16 @@ def dataloader(path , batchsize = 64,saved = True, sp = 100, model_name = "dense
         
         with open(f'saved_data_loader/val_dataloader_{sp}_{model_name}.pkl', 'rb') as f:
             val_loader = pickle.load(f)
+
+        # if model_name == 'densenet121':
+        #     print("reaching here")
+        #     train_dataset = train_loader.dataset
+        #     test_dataset = test_loader.dataset
+        #     val_dataset = val_loader.dataset
+
+        #     train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True,drop_last=True)
+        #     test_loader = DataLoader(test_dataset, batch_size=len(test_dataset), shuffle=False,drop_last=True)
+        #     val_loader = DataLoader(val_dataset, batch_size=len(val_dataset), shuffle=False,drop_last=True)
 
 
     return train_loader, test_loader, train_loader.dataset, test_loader.dataset, val_loader, val_loader.dataset

@@ -51,6 +51,7 @@ from torch_geometric.nn import GCNConv,GINConv
 # from sklearn.metrics import roc_auc_score
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# device = 'cpu'
 current_file_path = os.path.dirname(os.path.abspath(__file__))
 
 

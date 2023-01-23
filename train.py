@@ -9,7 +9,7 @@ import os
 import networkx as nx
 import matplotlib.pyplot as plt
 
-
+# device = 'cpu'
 
 def train_epoch(model,device,dataloader,loss_fn,optimizer):
 
