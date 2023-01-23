@@ -22,12 +22,19 @@ import time
 import traceback
 import sys
 from config import *
+from torch_geometric.loader import DataLoader
 try:
     from disf import DISF_Superpixels
 except:
     from skimage.segmentation import slic as DISF_Superpixels
 # from cuda_slic.slic import slic as cuda_slic
 from models import get_feture_extractor_model
+import random
+import torch
+from torch_geometric.utils import erdos_renyi_graph, to_networkx, from_networkx
+import pickle
+from models import GCN, GAT, GIN
+
 
 current_file_path = os.path.dirname(os.path.abspath(__file__))
 
@@ -46,6 +53,80 @@ def str_to_bool(value):
     elif value.lower() in {'true', 't', '1', 'yes', 'y'}:
         return True
     raise ValueError(f'{value} is not a valid boolean value')
+
+class SaveBestModel:
+    """
+    Class to save the best model while training. call it with test set for better results.
+    """
+    def __init__(
+        self, best_valid_loss=float('inf')
+    ):
+        self.best_valid_loss = best_valid_loss
+        
+    def __call__(
+        self, current_valid_loss, 
+        epoch, model, optimizer, criterion, cnn_model_name, gnn_model, superpixel_number
+    ):
+        if current_valid_loss < self.best_valid_loss:
+            self.best_valid_loss = current_valid_loss
+            # print(f"\nBest validation loss: {self.best_valid_loss}")
+            # print(f"\nSaving best model for epoch: {epoch+1}\n")
+            torch.save(model.state_dict(), f"outputs/{gnn_model}_{superpixel_number}_{cnn_model_name}_best_model.pt")
+            # torch.save({
+            #     'epoch': epoch+1,
+            #     'model_state_dict': model.state_dict(),
+            #     'optimizer_state_dict': optimizer.state_dict(),
+            #     'loss': criterion,
+            #     }, f'outputs/{gnn_model}_{superpixel_number}_{cnn_model_name}_best_model.pt')
+
+
+def save_plots(train_acc, valid_acc, train_loss, valid_loss,cnn_model_name, gnn_model, superpixel_number):
+    """
+    Function to save the loss and accuracy plots to disk.
+    """
+    # accuracy plots
+    plt.figure(figsize=(10, 7))
+    plt.plot(
+        train_acc, color='green', linestyle='-', 
+        label='train accuracy'
+    )
+    plt.plot(
+        valid_acc, color='blue', linestyle='-', 
+        label='validataion accuracy'
+    )
+    plt.xlabel('Epochs')
+    plt.ylabel('Accuracy')
+    plt.legend()
+    plt.savefig(f'outputs/{gnn_model}_{superpixel_number}_{cnn_model_name}_accuracy.png')
+    
+    # loss plots
+    plt.figure(figsize=(10, 7))
+    plt.plot(
+        train_loss, color='orange', linestyle='-', 
+        label='train loss'
+    )
+    plt.plot(
+        valid_loss, color='red', linestyle='-', 
+        label='validataion loss'
+    )
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.legend()
+    plt.savefig(f'outputs/{gnn_model}_{superpixel_number}_{cnn_model_name}_loss.png')
+
+
+
+def save_model(epochs, model, optimizer, criterion):
+    """
+    Final model not the best.
+    """
+    print(f"Saving final model...")
+    torch.save({
+                'epoch': epochs,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'loss': criterion,
+                }, 'outputs/final_model.pth')
 
 
 def read_data(data_dir):
@@ -115,7 +196,32 @@ def load_image(tain_normal_path,train_pneumonia_path,test_normal_path,test_pneum
 #     plt.imshow(mark_boundaries(train_normal_image, segments))
 #     plt.show()
 
+def load_all_from_one_folder(path,type = 0,train_test = 0):
+    all_files = os.listdir(path)
+    all_data = []
+    k = 0
+    for one_g in all_files:
+        print(one_g)
+        name = one_g.split(".")[0]
+        try:
+            G = nx.read_gpickle(f"{path}/{one_g}")
+            data = from_networkx(G)
+            print(data)
+        except:
+            #logging error here.
+            continue
+        yy = [0]
+        if type:
+            data.y = [1]
+            yy = [1]
+        else:
+            data.y = [0]
+        k+= 1
+        data.x = torch.Tensor([torch.flatten(val).tolist() for val in data.x])
+        data.name = name
+        all_data.append(data)
 
+    return all_data
 
 
 
@@ -242,6 +348,80 @@ def graph_preperation(n_segments = 10,model = 'dense121'):
             #    print('all done for one folder')
             end = time.time()
             print(f"time take per folder = {end - start}")
+
+
+
+
+def dataloader(path , batchsize = 64,saved = True, sp = 100, model_name = "densenet121"):
+    """
+    load train and test data
+    """
+    print("loading data")
+    train_dataset, test_dataset, val_dataset = None, None, None
+
+    if not saved:
+
+        train_normal = load_all_from_one_folder(f"{path}/train/NORMAL")
+        train_pneumonia = load_all_from_one_folder(f"{path}/train/PNEUMONIA",1)
+
+        test_normal = load_all_from_one_folder(f"{path}/test/NORMAL")
+        test_pneumonia = load_all_from_one_folder(f"{path}/test/PNEUMONIA",1)
+
+        val_normal = load_all_from_one_folder(f"{path}/val/NORMAL")
+        val_pneumonia = load_all_from_one_folder(f"{path}/val/PNEUMONIA",1)
+
+
+        train_data_arr = train_normal + train_pneumonia
+        test_data_arr = test_normal + test_pneumonia
+        val_data_arr = val_normal + val_pneumonia
+
+        random.shuffle(train_data_arr)
+        random.shuffle(test_data_arr)
+        random.shuffle(val_data_arr)
+        
+        train_dataset = train_data_arr
+        val_dataset = val_data_arr
+        test_dataset = test_data_arr
+        train_loader = DataLoader(train_dataset, batch_size=batchsize, shuffle=True,drop_last=True)
+        val_loader = DataLoader(val_dataset, batch_size=len(val_dataset), shuffle=False,drop_last=True)
+        test_loader = DataLoader(test_dataset, batch_size=len(test_dataset), shuffle=False,drop_last=True)
+
+        with open(f'saved_data_loader/train_dataloader_{sp}_{model_name}.pkl', 'wb') as f:
+            pickle.dump(train_loader, f)
+
+        with open(f'saved_data_loader/test_dataloader_{sp}_{model_name}.pkl', 'wb') as f:
+            pickle.dump(test_loader, f)
+        
+        with open(f'saved_data_loader/val_dataloader_{sp}_{model_name}.pkl', 'wb') as f:
+            pickle.dump(val_loader, f)
+    else:
+        with open(f'saved_data_loader/train_dataloader_{sp}_{model_name}.pkl', 'rb') as f:
+            train_loader = pickle.load(f)
+
+        with open(f'saved_data_loader/test_dataloader_{sp}_{model_name}.pkl', 'rb') as f:
+            test_loader = pickle.load(f)
+        
+        with open(f'saved_data_loader/val_dataloader_{sp}_{model_name}.pkl', 'rb') as f:
+            val_loader = pickle.load(f)
+
+
+    return train_loader, test_loader, train_loader.dataset, test_loader.dataset, val_loader, val_loader.dataset
+
+
+def get_gnn_model(gnn_model , input_size):
+    if gnn_model == "GCN":
+        model = GCN(input_size)
+        return model
+    elif gnn_model == "GIN":
+        model = GIN(input_size)
+        return model
+    elif gnn_model == "GAT":
+        model = GAT(input_size)
+        return model
+    else:
+        raise Exception("model not found")
+
+
 
 
 
