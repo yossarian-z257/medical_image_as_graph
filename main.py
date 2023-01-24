@@ -125,7 +125,7 @@ if __name__ == "__main__":
     learning_rate = args.learning_rate
     train = args.train
     batch_size = args.batch_size
-    epochs = args.epochs
+    epochs = 20#args.epochs
     saved = args.use_saved_state
     print(f"starting main.py for saved state = {saved}")
 
