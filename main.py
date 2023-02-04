@@ -9,17 +9,20 @@ import torch
 from torch.utils.data import Dataset,TensorDataset,random_split,SubsetRandomSampler, ConcatDataset
 from train import train_epoch, valid_epoch
 import csv
+from sklearn.metrics import confusion_matrix, accuracy_score
+from sklearn import metrics
+import matplotlib.pyplot as plt
 
 torch.cuda.empty_cache()
 
 current_file_path = os.path.dirname(os.path.abspath(__file__))
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # device = 'cpu'
-def write_test_results(gnn_model, superpixel_number, cnn_model_name, test_loss, test_acc):
+def write_test_results(gnn_model, superpixel_number, cnn_model_name, test_loss, test_acc,specificity_score, acc,specificity_score2):
     print("reach here")
-    with open('test_results.csv', 'a') as f:
+    with open('best_test_results.csv', 'a') as f:
         writer = csv.writer(f)
-        writer.writerow([gnn_model, superpixel_number, cnn_model_name, test_loss, test_acc])
+        writer.writerow([gnn_model, superpixel_number, cnn_model_name, test_loss, test_acc,specificity_score, acc,specificity_score2])
 
 
 
@@ -32,7 +35,7 @@ def run_epoch(model, train_loader,val_loader, optimizer, criterion, epoch = 10, 
     if train:
         for epoch in range(epochs):
             train_loss, train_acc = train_epoch(model,device,train_loader,criterion,optimizer)
-            val_loss, val_acc = valid_epoch(model,device,val_loader,criterion)
+            val_loss, val_acc, pecificity_score, acc, cfm,specificity_score2, true, pred = valid_epoch(model,device,val_loader,criterion)
   
             print("Epoch:{}/{} Training Loss:{:.3f}  Val Loss:{:.3f}  Training Acc {:.4f} %  Val Acc {:.4f} %".format(epoch + 1,
                                                                                                                     10,
@@ -84,11 +87,43 @@ def main(cnn_model_name = 'densenet', gnn_model = 'GCN', superpixel_number = 10,
             print(f'outputs/{gnn_model}_{superpixel_number}_{cnn_model_name}_best_model.pt')
             model = get_gnn_model(gnn_model, feature_size[cnn_model_name])
             model.load_state_dict(torch.load(f'outputs/{gnn_model}_{superpixel_number}_{cnn_model_name}_best_model.pt'))
-            test_loss, test_acc = valid_epoch(model,device,test_loader,criterion)
+            print("number of paramteres for this model",sum(p.numel() for p in model.parameters()))
+            test_loss, test_acc,specificity_score, acc, cfm,specificity_score2, true, pred = valid_epoch(model,device,test_loader,criterion)
+            plt.imshow(cfm,cmap = plt.cm.Wistia,
+                    interpolation='nearest')
+            for i in range(cfm.shape[0]):
+                for j in range(cfm.shape[1]):
+                    plt.text(j, i, cfm[i, j],
+                            ha="center", va="center", color="black")
+            plt.xlabel('Predicted label')
+            plt.ylabel('True label')
+            plt.xticks([0, 1], ['NORMAL', 'PNEUMONIA'])
+            plt.yticks([0, 1], ['NORMAL', 'PNEUMONIA'])
+            # plt.colorbar()
+            # plt.show()
+            print("1 label specificity_score2",specificity_score2)
+            plt.savefig(f'outputs/{gnn_model}_{superpixel_number}_{cnn_model_name}_confusion_matrix.png')
+
+
+            fpr, tpr, thresholds = metrics.roc_curve(true, pred)
+            roc_auc = metrics.auc(fpr, tpr)
+
+            plt.figure()
+            plt.plot(fpr, tpr, color='darkorange', lw=2,
+                    label='ROC curve (area = %0.2f)' % roc_auc)
+            plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+            plt.xlim([0.0, 1.0])
+            plt.ylim([0.0, 1.05])
+            plt.xlabel('False Positive Rate')
+            plt.ylabel('True Positive Rate')
+            plt.title(f'ROC {gnn_model}')
+            plt.legend(loc="lower right")
+            plt.savefig(f'outputs/{gnn_model}_{superpixel_number}_{cnn_model_name}_{thresholds}_ROC.png')
+
             print("Test Loss: {:.4f}".format(test_loss))
             print("Test Acc: {:.4f} %".format(test_acc))
             print("testing complete")
-            write_test_results(gnn_model, superpixel_number, cnn_model_name, test_loss, test_acc)
+            write_test_results(gnn_model, superpixel_number, cnn_model_name, test_loss, test_acc,specificity_score, acc,specificity_score2)
     
     else:
         print("Not using saved state")
