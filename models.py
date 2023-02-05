@@ -49,6 +49,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch_geometric.nn import GCNConv,GINConv
 # from sklearn.metrics import roc_auc_score
+import math
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # device = 'cpu'
@@ -87,6 +88,62 @@ class Identity(nn.Module):
         return x
 
 
+class PositionalEncoding(nn.Module):
+
+    def __init__(self, dim, max_len=100):
+
+        super(PositionalEncoding, self).__init__()
+
+
+        pe = torch.zeros(max_len, dim)
+
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+
+        div_term = torch.exp(torch.arange(0, dim, 2).float() * (-(math.log(10000.0) / dim)))
+
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0)
+        self.register_buffer('pe', pe)
+
+
+    def forward(self, x):
+
+        x = x + self.pe[:, :x.size(1), :]
+        return x
+
+
+
+
+def add_positional_encoding(data_list, max_len = 100):
+
+    print("Adding positional encoding",max_len)
+
+    for data in data_list:
+        node_features = data.x
+        node_features = node_features.unsqueeze(0)
+        pos_enc = PositionalEncoding(node_features.size(-1), max_len)
+        pos_enc_features = pos_enc(node_features)
+        pos_enc_features = pos_enc_features.squeeze(0)
+        data.x = torch.cat((data.x,pos_enc_features),dim=0)
+        # row, col = data.edge_index
+        # degree = torch.zeros(data.num_nodes, dtype=torch.long)
+        # degree[row] += 1
+        # degree[col] += 1
+        # # print(degree.view(-1, 1).shape)
+
+        # data.x = torch.cat([data.x, degree.view(-1, 1).float()], dim=-1)
+        # adj = torch.sparse.FloatTensor(data.edge_index, torch.ones(data.edge_index.shape[1]), torch.Size([data.num_nodes, data.num_nodes]))
+        # eigenvalues, _ = eigh(adj.to_dense().numpy())
+
+        # eigenvalues = torch.from_numpy(eigenvalues).float().unsqueeze(1)
+        # # print(eigenvalues.shape)
+        # data.x = torch.cat([data.x, eigenvalues], dim=-1)
+    return data_list
+
+
+
+
 class GCN(torch.nn.Module):
     def __init__(self, hidden_channels):
         super(GCN, self).__init__()
@@ -123,6 +180,7 @@ class GCN(torch.nn.Module):
 class GAT(torch.nn.Module):
     def __init__(self, hidden_channels):
         super(GAT, self).__init__()
+        torch.manual_seed(12345)
         self.hid = 8
         self.in_head = 8
         self.out_head = 1
@@ -146,11 +204,53 @@ class GAT(torch.nn.Module):
 
         return x
 
+class GAT2(torch.nn.Module):
+    def __init__(self,hidden_channels):
+        super(GAT2, self).__init__()
+        self.hid = 8
+        self.in_head = 8
+        self.out_head = 1
+
+        # self.conv1 = GATConv(1280, self.hid, heads=self.in_head, dropout=0.6)
+        # self.conv2 = GATConv(self.hid*self.in_head, 32, concat=False,
+        #                      heads=self.out_head, dropout=0.6)
+        
+        self.conv1 = GATConv(hidden_channels, 64, heads=self.in_head,dropout=0.3)
+        self.conv2 = GATConv(512, 32,heads=8,dropout=0.5)
+        self.conv3 = GATConv(256, 16, heads=8) #(4605x256 and 2048x512)
+        self.conv4 = GATConv(128, 64, heads=8, concat=True,dropout=0.3)
+        self.lin1 = Linear(512, 32)
+        # self.optimizer = torch.optim.Adam(self.parameters(), lr=0.005, weight_decay=5e-4)
+        self.lin2 = Linear(32, 2)
+
+    def forward(self,x, edge_index,batch):
+        
+        # Dropout before the GAT layer is used to avoid overfitting
+        # x = F.dropout(x, p=0.6, training=self.training)
+        x = self.conv1(x, edge_index)
+        x = F.elu(x)
+        x = self.conv2(x, edge_index)
+        x = F.elu(x)
+        x = self.conv3(x, edge_index)
+        x = F.elu(x)
+        x = self.conv4(x, edge_index)
+        x = global_mean_pool(x, batch)
+        x = F.dropout(x, p=0.5, training=self.training)
+        # x = self.conv2(x, edge_index)
+        x = self.lin1(x)
+        x = F.elu(x)
+        x = self.lin2(x)
+
+        return x
+
+
+
 
 
 class GIN(torch.nn.Module):
     """GIN"""
     def __init__(self,input_dim ,dim_h = 64):
+        torch.manual_seed(12345)
         super(GIN, self).__init__()
         self.conv1 = GINConv(
             Sequential(Linear(input_dim, dim_h),
