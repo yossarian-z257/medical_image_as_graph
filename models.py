@@ -125,7 +125,15 @@ def add_positional_encoding(data_list, max_len = 100):
         pos_enc = PositionalEncoding(node_features.size(-1), max_len)
         pos_enc_features = pos_enc(node_features)
         pos_enc_features = pos_enc_features.squeeze(0)
-        data.x = torch.cat((data.x,pos_enc_features),dim=0)
+        # data.x = torch.cat((data.x,pos_enc_features),dim=0)
+
+
+        #self loop 
+        # num_nodes = data.num_nodes
+        # edge_index = torch.cat([data.edge_index, torch.arange(num_nodes).repeat(2, 1)], dim=1)
+        # data.edge_index = edge_index
+
+
         # row, col = data.edge_index
         # degree = torch.zeros(data.num_nodes, dtype=torch.long)
         # degree[row] += 1
@@ -148,11 +156,11 @@ class GCN(torch.nn.Module):
     def __init__(self, hidden_channels):
         super(GCN, self).__init__()
         torch.manual_seed(12345)
-        self.conv1 = GCNConv(hidden_channels, 512)
-        self.conv2 = GCNConv(512, 256)
-        self.conv3 = GCNConv(256,128)
-        self.conv4 = GCNConv(128, 64)
-        self.lin1 = Linear(64, 32)
+        self.conv1 = GCNConv(hidden_channels, hidden_channels)
+        self.conv2 = GCNConv(hidden_channels, hidden_channels)
+        self.conv3 = GCNConv(hidden_channels,hidden_channels)
+        self.conv4 = GCNConv(hidden_channels, hidden_channels)
+        self.lin1 = Linear(hidden_channels, 32)
         #self.lin2 = Linear(128,64)
         self.lin = Linear(32, 2)
 
