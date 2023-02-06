@@ -32,6 +32,7 @@ def train_epoch(model,device,dataloader,loss_fn,optimizer):
         loss = criterion(out.to(device), data.y.to(device))
         loss.backward()  
         train_loss+=loss
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1)
         optimizer.step()
         optimizer.zero_grad() 
         correct += acc
@@ -54,17 +55,20 @@ def valid_epoch(model,device,dataloader,loss_fn):
         data.y = torch.Tensor(torch.flatten(data.y))
         data.y = data.y.type(torch.LongTensor)
         pred = out.argmax(dim=1).view(-1,1)
-        # cfm = confusion_matrix(data.y,pred)
+        cfm = confusion_matrix(data.y,pred.cpu())
         # print(cfm)
         acc = accuracy_score(data.y, pred.cpu())
         loss = criterion(out.to(device), data.y.to(device))
+        spcficity = cfm[0,0]/(cfm[0,0]+cfm[0,1])
+        sensitivity = cfm[1,1]/(cfm[1,1]+cfm[1,0])
+        # print(f"Specificity: {spcficity} Sensitivity: {sensitivity} Accuracy: {acc} Loss: {loss}")
         # loss.backward() 
         valid_loss+=loss
         # optimizer.step()
         # optimizer.zero_grad() 
         val_correct += acc #int((pred == data.y).sum()) 
 
-    return valid_loss.item()/ite,val_correct/ite  
+    return valid_loss.item()/ite,val_correct/ite, cfm, spcficity, sensitivity, data.y, pred
 
 
 
