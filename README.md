@@ -18,5 +18,6 @@ In this example we are testing on graph created on image with 5 superpixels, fea
 python main.py  --cnn_model_name resnet18  --gnn_model GCN  --use_saved_state yes   --superpixel_number 5  --train no
 ```
 
-To replicate the results, in colab use replicate_experiment.ipynb 
+To replicate the results, in colab use **replicate_experiments.ipynb**
+
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1E2iWu7IsS2eK8jyZS1dD5ZK2cBsc6fly?usp=sharing)
