@@ -156,11 +156,11 @@ class GCN(torch.nn.Module):
     def __init__(self, hidden_channels):
         super(GCN, self).__init__()
         torch.manual_seed(12345)
-        self.conv1 = GCNConv(hidden_channels, hidden_channels)
-        self.conv2 = GCNConv(hidden_channels, hidden_channels)
-        self.conv3 = GCNConv(hidden_channels,hidden_channels)
-        self.conv4 = GCNConv(hidden_channels, hidden_channels)
-        self.lin1 = Linear(hidden_channels, 32)
+        self.conv1 = GCNConv(hidden_channels, 512)
+        self.conv2 = GCNConv(512, 256)
+        self.conv3 = GCNConv(256,128)
+        self.conv4 = GCNConv(128, 64)
+        self.lin1 = Linear(64, 32)
         #self.lin2 = Linear(128,64)
         self.lin = Linear(32, 2)
 

@@ -9,25 +9,28 @@ import torch
 from torch.utils.data import Dataset,TensorDataset,random_split,SubsetRandomSampler, ConcatDataset
 from train import train_epoch, valid_epoch
 import csv
+import torch.nn.functional as F
+from sklearn.metrics import roc_auc_score
 from sklearn.metrics import confusion_matrix, accuracy_score
 from sklearn import metrics
 import matplotlib.pyplot as plt
+
 
 torch.cuda.empty_cache()
 
 current_file_path = os.path.dirname(os.path.abspath(__file__))
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # device = 'cpu'
-def write_test_results(gnn_model, superpixel_number, cnn_model_name, test_loss, test_acc,specificity_score, acc,specificity_score2):
+def write_test_results(gnn_model, superpixel_number, cnn_model_name, test_loss, test_acc, spcficity, sensitivity, roc):
     print("reach here")
     with open('best_test_results.csv', 'a') as f:
         writer = csv.writer(f)
-        writer.writerow([gnn_model, superpixel_number, cnn_model_name, test_loss, test_acc,specificity_score, acc,specificity_score2])
+        writer.writerow([gnn_model, superpixel_number, cnn_model_name, test_loss, test_acc, spcficity, sensitivity, roc])
 
 
 
 
-def run_epoch(model, train_loader,val_loader, optimizer, criterion, epoch = 10, train = True, cnn_model_name = 'densenet121', gnn_model = 'GCN', superpixel_number = 10):
+def run_epoch(model, train_loader,val_loader, optimizer, criterion, epochs = 10, train = True, cnn_model_name = 'densenet121', gnn_model = 'GCN', superpixel_number = 10):
     epoch_loss = 0
     epoch_acc = 0
     history = {'train_loss': [], 'test_loss': [],'train_acc':[],'test_acc':[]}
@@ -35,10 +38,10 @@ def run_epoch(model, train_loader,val_loader, optimizer, criterion, epoch = 10, 
     if train:
         for epoch in range(epochs):
             train_loss, train_acc = train_epoch(model,device,train_loader,criterion,optimizer)
-            val_loss, val_acc, pecificity_score, acc, cfm,specificity_score2, true, pred = valid_epoch(model,device,val_loader,criterion)
+            val_loss, val_acc,cfm, spcficity, sensitivity, true, pred = valid_epoch(model,device,val_loader,criterion)
   
             print("Epoch:{}/{} Training Loss:{:.3f}  Val Loss:{:.3f}  Training Acc {:.4f} %  Val Acc {:.4f} %".format(epoch + 1,
-                                                                                                                    10,
+                                                                                                                    epochs,
                                                                                                                     train_loss,
                                                                                                                     val_loss,
                                                                                                                     train_acc,
@@ -80,6 +83,12 @@ def main(cnn_model_name = 'densenet', gnn_model = 'GCN', superpixel_number = 10,
             optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay = 0.001)
             run_epoch(model, train_loader, test_loader, optimizer, criterion, epochs, train, cnn_model_name, gnn_model, superpixel_number)
             print("training complete")
+            # explainer = Explainer(
+            #     model=model,
+            #     explanation_type='node',
+            #     algorithm=GNNExplainer(epochs=200),
+            #     node_mask_type='attributes')
+            print("number of paramteres for this model",sum(p.numel() for p in model.parameters()))
 
 
         else:
@@ -88,20 +97,21 @@ def main(cnn_model_name = 'densenet', gnn_model = 'GCN', superpixel_number = 10,
             model = get_gnn_model(gnn_model, feature_size[cnn_model_name])
             model.load_state_dict(torch.load(f'outputs/{gnn_model}_{superpixel_number}_{cnn_model_name}_best_model.pt'))
             print("number of paramteres for this model",sum(p.numel() for p in model.parameters()))
-            test_loss, test_acc,specificity_score, acc, cfm,specificity_score2, true, pred = valid_epoch(model,device,test_loader,criterion)
+            test_loss, test_acc,cfm, spcficity, sensitivity, true, pred = valid_epoch(model,device,test_loader,criterion)
             plt.imshow(cfm,cmap = plt.cm.Wistia,
                     interpolation='nearest')
             for i in range(cfm.shape[0]):
                 for j in range(cfm.shape[1]):
                     plt.text(j, i, cfm[i, j],
-                            ha="center", va="center", color="black")
+                            ha="center", va="center", color="black",fontsize=14)
+            plt.title(f'{gnn_model} model {superpixel_number} superpixels {cnn_model_name} features')
             plt.xlabel('Predicted label')
             plt.ylabel('True label')
-            plt.xticks([0, 1], ['NORMAL', 'PNEUMONIA'])
-            plt.yticks([0, 1], ['NORMAL', 'PNEUMONIA'])
+            plt.xticks([0, 1], ['NORMAL', 'PNEUMONIA'], fontsize = 12)
+            plt.yticks([0, 1], ['NORMAL', 'PNEUMONIA'], fontsize = 12)
             # plt.colorbar()
             # plt.show()
-            print("1 label specificity_score2",specificity_score2)
+            print("1 label sensitivity",sensitivity)
             plt.savefig(f'outputs/{gnn_model}_{superpixel_number}_{cnn_model_name}_confusion_matrix.png')
 
 
@@ -123,7 +133,8 @@ def main(cnn_model_name = 'densenet', gnn_model = 'GCN', superpixel_number = 10,
             print("Test Loss: {:.4f}".format(test_loss))
             print("Test Acc: {:.4f} %".format(test_acc))
             print("testing complete")
-            write_test_results(gnn_model, superpixel_number, cnn_model_name, test_loss, test_acc,specificity_score, acc,specificity_score2)
+            # specificity_score, acc,specificity_score2 = 0,0,0
+            write_test_results(gnn_model, superpixel_number, cnn_model_name, test_loss, test_acc,spcficity, sensitivity,roc_auc)
     
     else:
         print("Not using saved state")
@@ -147,10 +158,10 @@ if __name__ == "__main__":
     parser.add_argument('--cnn_model_name', type=str, default='densenet121', help='Name of the model')
     parser.add_argument('--gnn_model', type=str, default='GCN', help='Name of the GNN model')
     parser.add_argument('--superpixel_number', type=int, default=10, help='Number of superpixels')
-    parser.add_argument('--learning_rate', type=float, default=0.01, help='Learning rate')
+    parser.add_argument('--learning_rate', type=float, default=0.001, help='Learning rate')
     parser.add_argument('--train', type=str_to_bool, nargs='?', const=True, default=True, help='Train or test')
     parser.add_argument('--batch_size', type=int, default=64, help='Batch size')
-    parser.add_argument('--epochs', type=int, default=10, help='Number of epochs')
+    parser.add_argument('--epochs', type=int, default=30, help='Number of epochs')
     parser.add_argument('--use_saved_state', type=str_to_bool, nargs='?', const=True, default=False)
     args = parser.parse_args()
 
@@ -160,7 +171,7 @@ if __name__ == "__main__":
     learning_rate = args.learning_rate
     train = args.train
     batch_size = args.batch_size
-    epochs = 20#args.epochs
+    epochs = args.epochs
     saved = args.use_saved_state
     print(f"starting main.py for saved state = {saved}")
 
