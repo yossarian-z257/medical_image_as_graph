@@ -22,7 +22,7 @@ current_file_path = os.path.dirname(os.path.abspath(__file__))
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # device = 'cpu'
 def write_test_results(gnn_model, superpixel_number, cnn_model_name, test_loss, test_acc, spcficity, sensitivity, roc):
-    print("reach here")
+    # print("reach here")
     with open('best_test_results.csv', 'a') as f:
         writer = csv.writer(f)
         writer.writerow([gnn_model, superpixel_number, cnn_model_name, test_loss, test_acc, spcficity, sensitivity, roc])
@@ -111,7 +111,7 @@ def main(cnn_model_name = 'densenet', gnn_model = 'GCN', superpixel_number = 10,
             plt.yticks([0, 1], ['NORMAL', 'PNEUMONIA'], fontsize = 12)
             # plt.colorbar()
             # plt.show()
-            print("1 label sensitivity",sensitivity)
+            print("label  1 sensitivity",sensitivity)
             plt.savefig(f'outputs/{gnn_model}_{superpixel_number}_{cnn_model_name}_confusion_matrix.png')
 
 
