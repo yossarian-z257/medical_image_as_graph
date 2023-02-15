@@ -95,7 +95,7 @@ def main(cnn_model_name = 'densenet', gnn_model = 'GCN', superpixel_number = 10,
             print("Testing")
             print(f'outputs/{gnn_model}_{superpixel_number}_{cnn_model_name}_best_model.pt')
             model = get_gnn_model(gnn_model, feature_size[cnn_model_name])
-            model.load_state_dict(torch.load(f'outputs/{gnn_model}_{superpixel_number}_{cnn_model_name}_best_model.pt'))
+            model.load_state_dict(torch.load(f'outputs/{gnn_model}_{superpixel_number}_{cnn_model_name}_best_model.pt', map_location=map_location=torch.device(device)))
             print("number of paramteres for this model",sum(p.numel() for p in model.parameters()))
             test_loss, test_acc,cfm, spcficity, sensitivity, true, pred = valid_epoch(model,device,test_loader,criterion)
             plt.imshow(cfm,cmap = plt.cm.Wistia,
@@ -149,11 +149,11 @@ def main(cnn_model_name = 'densenet', gnn_model = 'GCN', superpixel_number = 10,
 if __name__ == "__main__":
 
 
-    if not os.path.exists(f'{current_file_path}/chest_xray'):
-        print("please make sure that chest_xray folder is in the same directory as main.py")
-        print("expected chest_xray folder with train and test folders inside")
-        print("run dowload_data.py to download the data and extract it to the chest_xray folder")
-        sys.exit()
+    # if not os.path.exists(f'{current_file_path}/chest_xray'):
+    #     print("please make sure that chest_xray folder is in the same directory as main.py")
+    #     print("expected chest_xray folder with train and test folders inside")
+    #     print("run dowload_data.py to download the data and extract it to the chest_xray folder")
+    #     sys.exit()
     parser = argparse.ArgumentParser(description='Getting arguments')
     parser.add_argument('--cnn_model_name', type=str, default='densenet121', help='Name of the model')
     parser.add_argument('--gnn_model', type=str, default='GCN', help='Name of the GNN model')
@@ -174,6 +174,12 @@ if __name__ == "__main__":
     epochs = args.epochs
     saved = args.use_saved_state
     print(f"starting main.py for saved state = {saved}")
+
+    if not os.path.exists(f'{current_file_path}/chest_xray') and not saved:
+        print("please make sure that chest_xray folder is in the same directory as main.py")
+        print("expected chest_xray folder with train and test folders inside")
+        print("run dowload_data.py to download the data and extract it to the chest_xray folder")
+        sys.exit()
 
     ret = main(cnn_model_name,gnn_model, superpixel_number, learning_rate, batch_size, epochs, train, saved)#, pretrained
     if ret == 0:
