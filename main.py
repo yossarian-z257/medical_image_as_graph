@@ -95,7 +95,7 @@ def main(cnn_model_name = 'densenet', gnn_model = 'GCN', superpixel_number = 10,
             print("Testing")
             print(f'outputs/{gnn_model}_{superpixel_number}_{cnn_model_name}_best_model.pt')
             model = get_gnn_model(gnn_model, feature_size[cnn_model_name])
-            model.load_state_dict(torch.load(f'outputs/{gnn_model}_{superpixel_number}_{cnn_model_name}_best_model.pt', map_location=map_location=torch.device(device)))
+            model.load_state_dict(torch.load(f'outputs/{gnn_model}_{superpixel_number}_{cnn_model_name}_best_model.pt', map_location=torch.device(device)))
             print("number of paramteres for this model",sum(p.numel() for p in model.parameters()))
             test_loss, test_acc,cfm, spcficity, sensitivity, true, pred = valid_epoch(model,device,test_loader,criterion)
             plt.imshow(cfm,cmap = plt.cm.Wistia,
