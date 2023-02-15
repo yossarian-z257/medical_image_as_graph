@@ -21,3 +21,17 @@ python main.py  --cnn_model_name resnet18  --gnn_model GCN  --use_saved_state ye
 To replicate the results, in colab use **replicate_experiments.ipynb**
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1E2iWu7IsS2eK8jyZS1dD5ZK2cBsc6fly?usp=sharing)
+
+
+### To create new graph dataset from image, dowload chex_xray image and run following command
+```
+sh download.sh 
+
+python main.py  --cnn_model_name {cnn_model_name}  --use_saved_state no  --superpixel_number {superpixel_value}
+```
+Example:
+This will create a folder named chest_xray_graph and will create graph from images, using features of resnet18 and superpixel value of 5 i.e 5 node graph. 
+```
+python main.py  --cnn_model_name resnet18  --gnn_model GCN  --use_saved_state no  --superpixel_number 5
+```
+
