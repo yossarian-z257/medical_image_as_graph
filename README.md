@@ -23,7 +23,7 @@ To replicate the results, in colab use **replicate_experiments.ipynb**
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1E2iWu7IsS2eK8jyZS1dD5ZK2cBsc6fly?usp=sharing)
 
 
-### To create new graph dataset from image, dowload chex_xray image and run following command
+### To create new graph dataset from image, dowload chex_xray images and run following command
 ```
 sh download.sh 
 
