@@ -23,6 +23,7 @@ To replicate the results, in colab use **replicate_experiments.ipynb**
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1E2iWu7IsS2eK8jyZS1dD5ZK2cBsc6fly?usp=sharing)
 
 To replicate ensemlby result use **ensembling_result.ipynb**
+
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1aktjvqLi908s3VcKJVRDYa77ENQuo7AS?usp=sharing)
 
 ### To create new graph dataset from image, dowload chest_xray images and run the following commands
