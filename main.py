@@ -139,6 +139,7 @@ def main(cnn_model_name = 'densenet', gnn_model = 'GCN', superpixel_number = 10,
     else:
         print("Not using saved state")
         graph_preperation(superpixel_number,cnn_model_name)
+        os.system(f"python saving_dataloader.py --model_name {cnn_model_name} --super_pixels {superpixel_number}")
         saved = True
         main(cnn_model_name, gnn_model, superpixel_number, learning_rate, batch_size, epochs, train, saved)
         return 0
