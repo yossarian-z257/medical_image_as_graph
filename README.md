@@ -7,7 +7,7 @@ conda activate graphenv
 ```
 
 
-### To run an experiment execurte 
+### To run an experiment 
 ```
 python main.py  --cnn_model_name {resnet18/efficienet-b0/densenet121} --gnn_model {GCN/GAT/GIN}  --use_saved_state yes   --superpixel_number {5/10/50/100/150/300}  --train {yes/no/True/False}
 ```
