@@ -3,7 +3,7 @@ import sys
 import argparse
 from utils import graph_preperation
 from utils import str_to_bool
-from utils import dataloader, get_gnn_model, save_model, save_plots, SaveBestModel
+from utils import make_dirs ,dataloader, get_gnn_model, save_model, save_plots, SaveBestModel,download_dataloader
 from config import *
 import torch
 from torch.utils.data import Dataset,TensorDataset,random_split,SubsetRandomSampler, ConcatDataset
@@ -149,7 +149,7 @@ def main(cnn_model_name = 'densenet', gnn_model = 'GCN', superpixel_number = 10,
 
 if __name__ == "__main__":
 
-
+    make_dirs('saved_data_loader')    
     # if not os.path.exists(f'{current_file_path}/chest_xray'):
     #     print("please make sure that chest_xray folder is in the same directory as main.py")
     #     print("expected chest_xray folder with train and test folders inside")
@@ -181,6 +181,9 @@ if __name__ == "__main__":
         print("expected chest_xray folder with train and test folders inside")
         print("run dowload_data.py to download the data and extract it to the chest_xray folder")
         sys.exit()
+    
+    if not os.path.exists(f'{current_file_path}/saved_data_loader/train_dataloader_{superpixel_number}_{cnn_model_name}.pkl'):
+        download_dataloader(superpixel_number,cnn_model_name)
 
     ret = main(cnn_model_name,gnn_model, superpixel_number, learning_rate, batch_size, epochs, train, saved)#, pretrained
     if ret == 0:

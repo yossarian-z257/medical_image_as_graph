@@ -23,6 +23,8 @@ import traceback
 import sys
 from config import *
 from torch_geometric.loader import DataLoader
+from torch_geometric.data import Dataset, Data
+
 try:
     from disf import DISF_Superpixels
 except:
@@ -33,7 +35,9 @@ import random
 import torch
 from torch_geometric.utils import erdos_renyi_graph, to_networkx, from_networkx
 import pickle
-from models import GCN, GAT, GIN
+from models import GCN, GAT, GIN,add_positional_encoding, GAT2
+import torch_geometric.transforms as T
+
 
 
 current_file_path = os.path.dirname(os.path.abspath(__file__))
@@ -53,6 +57,16 @@ def str_to_bool(value):
     elif value.lower() in {'true', 't', '1', 'yes', 'y'}:
         return True
     raise ValueError(f'{value} is not a valid boolean value')
+
+
+def download_dataloader(sp = 10, feature = 'densenet121'):
+    experiment_text = f"{sp}_{feature}"
+    for fl in ['train','test','val']:
+        file_name = f"{fl}_dataloader_{experiment_text}"
+        file_url =  saved_data_loader[file_name]
+        file_name = file_name + ".pkl"
+        os.system(f"curl -o {file_name} -L '{file_url}'")
+    os.system(f"mv *.pkl {current_file_path}/saved_data_loader/")
 
 class SaveBestModel:
     """
@@ -141,7 +155,7 @@ def read_data(data_dir):
 def read_image(path):
     images = []
     for one in os.listdir(path):
-        print(one,"this should look correct")
+        # print(one,"this should look correct")
         image = cv2.imread(os.path.join(path, one))
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         image = cv2.resize(image, (224, 224))
@@ -410,7 +424,23 @@ def dataloader(path , batchsize = 64,saved = True, sp = 100, model_name = "dense
         #     test_loader = DataLoader(test_dataset, batch_size=len(test_dataset), shuffle=False,drop_last=True)
         #     val_loader = DataLoader(val_dataset, batch_size=len(val_dataset), shuffle=False,drop_last=True)
 
+    dim = 100 
+    if sp > 100:
+        dim = sp
+    dim = sp + 1
+   
+    train_dataset = add_positional_encoding(train_loader.dataset,dim)
+    # print(train_dataset)
+    train_loader = DataLoader(train_dataset, batch_size=batchsize, shuffle=True,drop_last=True)   
 
+    test_dataset = add_positional_encoding(test_loader.dataset,dim)
+    test_loader = DataLoader(test_dataset, batch_size=len(test_dataset), shuffle=False,drop_last=True)  
+
+    val_dataset = add_positional_encoding(val_loader.dataset,dim)
+    val_loader = DataLoader(val_dataset, batch_size=len(val_dataset), shuffle=False,drop_last=True) 
+
+
+    
     return train_loader, test_loader, train_loader.dataset, test_loader.dataset, val_loader, val_loader.dataset
 
 
